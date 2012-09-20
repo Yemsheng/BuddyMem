@@ -7,22 +7,10 @@ using namespace std;
 
 int main()
 {
-	int a = 5;
-	int i = 0;
-	for(i=1;;i++)
-	{
-		if((a>>i)==0)
-		{
-			break;
-		}
-	}
-
-	cout<<i<<endl;
-
-	BuddyMem buddyMem(1024,32);
+	BuddyMem buddyMem(1024,1);
 	buddyMem.BuddyMemCreate();
+	char *p1 = buddyMem.BuddyMemMalloc(3);
 	buddyMem.BuddyMemDestroy();
-
 
 	return 0;
 }
