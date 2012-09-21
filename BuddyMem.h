@@ -20,7 +20,7 @@ public:
 	BuddyMem(unsigned int maxMemorySize, unsigned int blockSize):m_maxMemorySize(maxMemorySize), m_blockSize(blockSize),m_startPos(NULL),m_createFlag(false){}
 	bool BuddyMemCreate();
 	char* BuddyMemMalloc(const unsigned int);
-	void BuddyMemFree();
+	void BuddyMemFree(char *pMem);
 	void BuddyMemDestroy();
 private:
 	void CaculateTableLinkListSize();
@@ -39,7 +39,12 @@ private:
 
 	//对链表节点的插入和删除
 	bool insertNodeToTableLinkList(LinkNode **table, unsigned int index, LinkNode *node);
+	bool insertNodeToEmptyTableLinkList(unsigned int index, LinkNode *node);
+	bool insertNodeToUsedableLinkList(unsigned int index, LinkNode *node);
 	void deleteFirstNodeFromTableLinkList(LinkNode **table, unsigned int index);
+	//通过地址，从used表中查找该node所在位置，返回改node,它的pre和所在index
+	LinkNode* findNodeFromAddress(char *address, LinkNode **pre,unsigned int *index);
+	void mergeTwoNodeAndInsertToEmptyTableList(LinkNode *nodeFirst, LinkNode *nodeSecond, unsigned index);
 
 	//根据需要的block数计算出事实上分配出去的block数
 	unsigned int getActuallyAllocBlock(unsigned int needBlock);

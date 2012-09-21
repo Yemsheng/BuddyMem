@@ -109,7 +109,7 @@ char* BuddyMem::BuddyMemMalloc(const unsigned int size)
 			for(i=tableIndex;i<actuallyTableIndex;i++)
 			{
 				emptyNode = new LinkNode;
-			    emptyNode->address = pInsert;
+				emptyNode->address = pInsert;
 				emptyNode->next = NULL;
 				insertNodeToTableLinkList(m_emptyTableLinkListArray,i,emptyNode);
 				pInsert = pInsert + m_blockSize*getBlockAmountFromIndex(i);
@@ -126,6 +126,34 @@ char* BuddyMem::BuddyMemMalloc(const unsigned int size)
 	}
 
 	return NULL;
+}
+
+void BuddyMem::BuddyMemFree(char *pMem)
+{
+	unsigned int index = 0;
+	LinkNode *nodeFind = NULL;
+	LinkNode *nodePre = NULL;
+
+	//1、找到该地址所在的节点
+	nodeFind = findNodeFromAddress(pMem, &nodePre, &index);
+	if(nodeFind==NULL)
+	{
+		return;
+	}
+	if(nodeFind==nodePre)
+	{
+		//表示表头指向的那个,可以不管nodeFind->next空不空
+		m_usedTableLinkListArray[index] = nodeFind->next;
+	}
+	else
+	{
+		nodePre->next = nodeFind->next;
+	}
+	nodeFind->next = NULL;
+	memset(nodeFind->address, 0, m_blockSize*getBlockAmountFromIndex(index));
+	//把该节点插入empty表中
+	insertNodeToTableLinkList(m_emptyTableLinkListArray,index,nodeFind);
+
 }
 
 unsigned int BuddyMem::getTableLinkListIndexFromBlockAmount(unsigned int blockAmount)
@@ -207,7 +235,7 @@ bool BuddyMem::insertNodeToTableLinkList(LinkNode **table, unsigned int index, L
 
 	//nodeCurr是必然存在的
 	LinkNode *nodeCurr = table[index];
-    LinkNode *nodePre = NULL;
+	LinkNode *nodePre = NULL;
 
 	if((nodeCurr->address)>(node->address))
 	{
@@ -244,6 +272,130 @@ bool BuddyMem::insertNodeToTableLinkList(LinkNode **table, unsigned int index, L
 	return false;
 }
 
+bool BuddyMem::insertNodeToEmptyTableLinkList(unsigned int index, LinkNode *node)
+{
+	LinkNode **table = m_emptyTableLinkListArray;
+
+	if(table[index]==NULL)
+	{
+		//如果表是空的
+		table[index] = node;
+		return true;
+	}
+
+	//nodeCurr是必然存在的
+	LinkNode *nodeCurr = table[index];
+	LinkNode *nodePre = NULL;
+	LinkNode *nodePrePre = NULL;
+
+	//用于计算是否需要合并
+	unsigned int offsetByte = m_blockSize*getBlockAmountFromIndex(index);
+
+	if((nodeCurr->address)>(node->address))
+	{
+		//刚好插在表头
+		node->next = nodeCurr;
+		table[index] = node;
+		//判断是否需要合并
+		if((node->address+offsetByte)==node->next->address)
+		{
+			//断开并删除node->next节点
+			table[index] = node->next->next;
+			delete node->next;
+			node->next = NULL;
+			//把node节点插入到empty表index+1的链表中
+			insertNodeToEmptyTableLinkList(index+1, node);
+		}
+		return true;
+	}
+
+	nodePre = nodeCurr;
+	nodeCurr = node->next;
+
+	while(true)
+	{
+		//如果到了链表尾部
+		if(nodeCurr==NULL)
+		{
+			nodePre->next = node;
+			if((nodePre->address+offsetByte)==node->address)
+			{
+				//当前节点和前一个节点合并
+				if(nodePrePre==NULL)
+				{
+					//证明合并前，该链表只有两个节点
+					table[index] = NULL;
+				}
+				else
+				{
+					nodePrePre->next = NULL;
+				}
+				delete node;
+				nodePre->next = NULL;
+				insertNodeToEmptyTableLinkList(index+1, nodePre);
+			}
+			return true;
+		}
+
+		if((nodeCurr->address)>(node->address))
+		{
+			//找到插入点
+			node->next = nodeCurr;
+			nodePre->next = node;
+
+			if((nodePre->address+offsetByte)==node->address)
+			{
+				//当前节点和前一个节点合并
+				if(nodePrePre==NULL)
+				{
+					//证明合并前，该链表只有两个节点
+					table[index] = node->next;
+				}
+				else
+				{
+					nodePrePre->next = node->next;
+				}
+				delete node;
+				nodePre->next = NULL;
+				insertNodeToEmptyTableLinkList(index+1, nodePre);
+			}
+			else if((node->address+offsetByte)==node->next->address)
+			{
+				//当前节点和后一个节点合并
+				//断开node并删除node->next节点
+				nodePre->next = node->next->next;
+				delete node->next;
+				node->next = NULL;
+				//把node节点插入到empty表index+1的链表中
+				insertNodeToEmptyTableLinkList(index+1, node);
+			}
+			return true;
+		}
+
+		nodePrePre = nodePre;
+		nodePre = nodeCurr;
+		nodeCurr = nodeCurr->next;
+	}
+
+	return false;
+}
+
+bool BuddyMem::insertNodeToUsedableLinkList(unsigned int index, LinkNode *node)
+{
+	//used表的节点，不用合并，插在表头就好了
+
+	LinkNode **table = m_usedTableLinkListArray;
+
+	if(index>=m_tableLinkListSize)
+	{
+		return false;
+	}
+	node->next = table[index];
+	table[index] = node;
+	return true;
+
+}
+
 void BuddyMem::deleteFirstNodeFromTableLinkList(LinkNode **table, unsigned int index)
 {
 	if(table[index]==NULL)
@@ -256,6 +408,32 @@ void BuddyMem::deleteFirstNodeFromTableLinkList(LinkNode **table, unsigned int i
 	table[index] = secondNode;
 }
 
+LinkNode* BuddyMem::findNodeFromAddress(char *address, LinkNode **pre,unsigned int *index)
+{
+    LinkNode* nodeCurr = NULL;
+	LinkNode* nodePre = NULL;
+	int i = 0;
+	for(;i<m_tableLinkListSize;i++)
+	{
+		nodeCurr = m_usedTableLinkListArray[i];
+		nodePre = nodeCurr;
+		while(nodeCurr!=NULL)
+		{
+			if(nodeCurr->address==address)
+			{
+				*index = i;
+				*pre = nodePre;
+				return nodeCurr;
+			}
+			nodePre = nodeCurr;
+			nodeCurr = nodeCurr->next;
+		}
+
+	}
+	return NULL;
+}
+
+//后来不用这个函数了，都用这个去了getBlockAmountFromIndex，因为我知道index
 unsigned int BuddyMem::getActuallyAllocBlock(unsigned int needBlock)
 {
 	unsigned int count = 0;
