@@ -100,7 +100,8 @@ char* BuddyMem::BuddyMemMalloc(const unsigned int size)
 			LinkNode *usedNode = new LinkNode;
 			usedNode->address = pAlloc;
 			usedNode->next = NULL;
-			insertNodeToTableLinkList(m_usedTableLinkListArray,tableIndex,usedNode);
+			//insertNodeToTableLinkList(m_usedTableLinkListArray,tableIndex,usedNode);
+			insertNodeToUsedableLinkList(tableIndex, usedNode);
 
 			//3、从链表头节点保存的内存空间拆分成新的节点，添加到empty表
 			int i = 0;
@@ -111,7 +112,8 @@ char* BuddyMem::BuddyMemMalloc(const unsigned int size)
 				emptyNode = new LinkNode;
 				emptyNode->address = pInsert;
 				emptyNode->next = NULL;
-				insertNodeToTableLinkList(m_emptyTableLinkListArray,i,emptyNode);
+				//insertNodeToTableLinkList(m_emptyTableLinkListArray,i,emptyNode);
+				insertNodeToEmptyTableLinkList(i, emptyNode);
 				pInsert = pInsert + m_blockSize*getBlockAmountFromIndex(i);
 			}
 
@@ -152,7 +154,8 @@ void BuddyMem::BuddyMemFree(char *pMem)
 	nodeFind->next = NULL;
 	memset(nodeFind->address, 0, m_blockSize*getBlockAmountFromIndex(index));
 	//把该节点插入empty表中
-	insertNodeToTableLinkList(m_emptyTableLinkListArray,index,nodeFind);
+	//insertNodeToTableLinkList(m_emptyTableLinkListArray,index,nodeFind);
+	insertNodeToEmptyTableLinkList(index, nodeFind);
 
 }
 
