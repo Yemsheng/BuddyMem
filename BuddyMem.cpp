@@ -71,6 +71,14 @@ void BuddyMem::BuddyMemDestroy()
 
 char* BuddyMem::BuddyMemMalloc(const unsigned int size)
 {
+	if(!m_createFlag)
+	{
+		return NULL;
+	}
+	if(size == 0)
+	{
+		return NULL;
+	}
 	unsigned int needBlockAmount = size/m_blockSize;
 	if(size%m_blockSize!=0)
 	{
@@ -132,6 +140,10 @@ char* BuddyMem::BuddyMemMalloc(const unsigned int size)
 
 void BuddyMem::BuddyMemFree(char *pMem)
 {
+	if(!m_createFlag)
+	{
+		return;
+	}
 	unsigned int index = 0;
 	LinkNode *nodeFind = NULL;
 	LinkNode *nodePre = NULL;
